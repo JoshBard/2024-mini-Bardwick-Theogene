@@ -8,6 +8,7 @@ import random
 import json
 import urequests  # For cloud upload
 import ujson  # For JSON encoding in Firebase Realtime Database
+import gc  # For garbage collection
 
 
 N: int = 10  # Changed to 10 flashes
@@ -31,20 +32,19 @@ def blinker(N: int, led: Pin) -> None:
 
 
 def write_json(json_filename: str, data: dict) -> None:
-    """Writes data to a JSON file.
-
-    Parameters
-    ----------
-
-    json_filename: str
-        The name of the file to write to. This will overwrite any existing file.
-
-    data: dict
-        Dictionary data to write to the file.
-    """
-
-    with open(json_filename, "w") as f:
-        json.dump(data, f)
+    """Writes data to a JSON file."""
+    try:
+        with open(json_filename, "w") as f:
+            json.dump(data, f)
+    except OSError as e:
+        print(f"Error writing to file: {e}")
+        # If out of memory, try to free some
+        gc.collect()
+        try:
+            with open(json_filename, "w") as f:
+                json.dump(data, f)
+        except OSError as e:
+            print(f"Failed to write even after garbage collection: {e}")
 
 
 def scorer(t: list[int | None]) -> None:
@@ -79,6 +79,7 @@ def scorer(t: list[int | None]) -> None:
 
     now_str = "-".join(map(str, now[:3])) + "T" + "_".join(map(str, now[3:6]))
     filename = f"score-{now_str}.json"
+    
 
     print("write", filename)
 
