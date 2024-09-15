@@ -6,9 +6,11 @@ from machine import Pin
 import time
 import random
 import json
+import urequests  # For cloud upload
+import ujson  # For JSON encoding in Firebase Realtime Database
 
 
-N: int = 3
+N: int = 10  # Changed to 10 flashes
 sample_ms = 10.0
 on_ms = 500
 
@@ -52,12 +54,24 @@ def scorer(t: list[int | None]) -> None:
 
     t_good = [x for x in t if x is not None]
 
-    print(t_good)
+    # Calculate statistics
+    avg_time = sum(t_good) / len(t_good) if t_good else None
+    min_time = min(t_good) if t_good else None
+    max_time = max(t_good) if t_good else None
+    score = len(t_good) / len(t)
 
-    # add key, value to this dict to store the minimum, maximum, average response time
+     # add key, value to this dict to store the minimum, maximum, average response time
     # and score (non-misses / total flashes) i.e. the score a floating point number
     # is in range [0..1]
-    data = {}
+
+    data = {
+        "average_time": avg_time,
+        "min_time": min_time,
+        "max_time": max_time,
+        "score": score,
+        "misses": misses,
+        "total_flashes": len(t)
+    }
 
     # %% make dynamic filename and write JSON
 
@@ -69,6 +83,32 @@ def scorer(t: list[int | None]) -> None:
     print("write", filename)
 
     write_json(filename, data)
+
+    # Upload data to cloud
+    upload_to_cloud(data)
+
+# """Upload data to a cloud service."""
+
+def upload_to_cloud(data: dict) -> None:
+    """Upload data to Firebase Realtime Database."""
+    # Firebase project URL
+    firebase_url = "https://seniordesigni-musicproj-default-rtdb.firebaseio.com"
+    # Firebase database secret
+    auth_token = "GjuQq5SBEKPPKE4Gme2Q2vbNurEjhj0dmTliPwnS"
+    
+    # Create a unique key for this data entry (you can use a timestamp)
+    timestamp = str(time.time())
+    
+    url = f"{firebase_url}/response_times/{timestamp}.json?auth={auth_token}"
+    
+    print(f"Uploading data: {data}")
+    try:
+        response = urequests.put(url, data=ujson.dumps(data))
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
+        print("Upload successful" if response.status_code == 200 else "Upload failed")
+    except Exception as e:
+        print(f"Upload error: {e}")
 
 
 if __name__ == "__main__":
