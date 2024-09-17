@@ -10,17 +10,16 @@ import urequests  # For cloud upload
 import ujson  # For JSON encoding in Firebase Realtime Database
 import gc  # For garbage collection
 import network  # For Wi-Fi connection
+import sys #for exiting
 
 N: int = 10  # Number of LED flashes for the game
 sample_ms = 10.0
 on_ms = 500
 
-SSID = 'wifi-name'  # Your Wi-Fi SSID
-PASSWORD = 'wifi-password'  # Your Wi-Fi Password
+SSID = 'WIFI'  # Your Wi-Fi SSID
+PASSWORD = 'WIFI-PASSWORD'  # Your Wi-Fi Password
 FIREBASE_URL = "https://seniordesigni-musicproj-default-rtdb.firebaseio.com"  # Firebase project URL
-API_KEY = "<FIREBASE_API_KEY>"  # Replace with your Firebase API key
-EMAIL = "fakeemail@example.com"  # Replace with your Firebase-authenticated email
-EMAIL_PASSWORD = "fakepassword"  # Replace with your Firebase-authenticated password
+API_KEY = "API-KEY"
 
 # Wi-Fi connection function
 def connect_wifi(ssid: str, password: str) -> None:
@@ -110,9 +109,9 @@ def scorer(t: list[int | None], token: str) -> None:
     # is in range [0..1]
 
     data = {
-        "average_time": avg_time,
-        "min_time": min_time,
-        "max_time": max_time,
+        "average_time in ms": avg_time,
+        "min_time in ms": min_time,
+        "max_time in ms": max_time,
         "score": score,
         "misses": misses,
         "total_flashes": len(t)
@@ -159,10 +158,12 @@ if __name__ == "__main__":
         print(e)
 
     # Authenticate with Firebase using the email and password
-    token = authenticate(EMAIL, EMAIL_PASSWORD)
+    email = input("enter your login email: ")
+    email_password = input("enter your email password: ")
+    token = authenticate(email, email_password)
     if not token:
         print("Authentication failed. Exiting program.")
-        exit()
+        sys.exit()
 
     # Initialize LED and button pins
     led = Pin("LED", Pin.OUT)
