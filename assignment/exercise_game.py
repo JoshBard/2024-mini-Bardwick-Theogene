@@ -1,5 +1,5 @@
 """
-Response time - single-threaded
+Response time - single-threaded with Firebase email/password authentication
 """
 
 from machine import Pin
@@ -18,7 +18,9 @@ on_ms = 500
 SSID = 'wifi-name'  # Your Wi-Fi SSID
 PASSWORD = 'wifi-password'  # Your Wi-Fi Password
 FIREBASE_URL = "https://seniordesigni-musicproj-default-rtdb.firebaseio.com"  # Firebase project URL
-AUTH_TOKEN = "GjuQq5SBEKPPKE4Gme2Q2vbNurEjhj0dmTliPwnS"  # Firebase database secret for authorization
+API_KEY = "<FIREBASE_API_KEY>"  # Replace with your Firebase API key
+EMAIL = "fakeemail@example.com"  # Replace with your Firebase-authenticated email
+EMAIL_PASSWORD = "fakepassword"  # Replace with your Firebase-authenticated password
 
 # Wi-Fi connection function
 def connect_wifi(ssid: str, password: str) -> None:
@@ -39,6 +41,29 @@ def connect_wifi(ssid: str, password: str) -> None:
     else:
         print('Failed to connect to Wi-Fi')
         raise RuntimeError('Wi-Fi connection failed')
+
+# Authenticate with Firebase using email and password
+def authenticate(email: str, password: str) -> str:
+    """Authenticate with Firebase using email and password."""
+    auth_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={API_KEY}"
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    try:
+        response = urequests.post(auth_url, json=payload)
+        response_data = response.json()
+        # Get the ID token from the response
+        id_token = response_data.get("idToken")
+        if id_token:
+            print("Authentication successful!")
+            return id_token
+        else:
+            print("Authentication failed:", response_data)
+    except Exception as e:
+        print(f"Error during authentication: {e}")
+    return None
 
 def random_time_interval(tmin: float, tmax: float) -> float:
     """Returns a random time interval between tmin and tmax."""
@@ -67,7 +92,7 @@ def write_json(json_filename: str, data: dict) -> None:
         except OSError as e:
             print(f"Failed to write even after garbage collection: {e}")
 
-def scorer(t: list[int | None]) -> None:
+def scorer(t: list[int | None], token: str) -> None:
     # %% collate results
     misses = t.count(None)
     print(f"You missed the light {misses} / {len(t)} times")
@@ -104,22 +129,18 @@ def scorer(t: list[int | None]) -> None:
 
     write_json(filename, data)
 
-    # Upload data to cloud
-    upload_to_cloud(data)
+    # Upload data to cloud with the obtained token
+    upload_to_cloud(data, token)
 
-# """Upload data to a cloud service."""
-
-def upload_to_cloud(data: dict) -> None:
-    """Upload data to Firebase Realtime Database."""
+# Upload data to a cloud service with an authentication token
+def upload_to_cloud(data: dict, token: str) -> None:
+    """Upload data to Firebase Realtime Database using the provided token."""
     # Firebase project URL
     firebase_url = FIREBASE_URL
-    # Firebase database secret
-    auth_token = AUTH_TOKEN
-    
-    # Create a unique key for this data entry (you can use a timestamp)
+    # Create a unique key for this data entry (using a timestamp)
     timestamp = str(time.time())
     
-    url = f"{firebase_url}/response_times/{timestamp}.json?auth={auth_token}"
+    url = f"{firebase_url}/response_times/{timestamp}.json?auth={token}"
     
     print(f"Uploading data: {data}")
     try:
@@ -136,6 +157,12 @@ if __name__ == "__main__":
         connect_wifi(SSID, PASSWORD)
     except RuntimeError as e:
         print(e)
+
+    # Authenticate with Firebase using the email and password
+    token = authenticate(EMAIL, EMAIL_PASSWORD)
+    if not token:
+        print("Authentication failed. Exiting program.")
+        exit()
 
     # Initialize LED and button pins
     led = Pin("LED", Pin.OUT)
@@ -168,5 +195,5 @@ if __name__ == "__main__":
     # Blink to indicate game end
     blinker(5, led)
 
-    # Calculate and display results
-    scorer(t)
+    # Calculate and display results and upload data to Firebase
+    scorer(t, token)
